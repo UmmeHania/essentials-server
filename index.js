@@ -38,7 +38,7 @@ async function run() {
         })
 
 
-        //Load Single data details
+        //Load Single Product details
         app.get('/inventory/:id', async (req, res) => {
             const id = req.params.id;
             // var hex = /[0-9A-Fa-f]{6}/g;
