@@ -69,8 +69,6 @@ async function run() {
         //Load Single Product details
         app.get("/inventory/:id", async (req, res) => {
             const id = req.params.id;
-            // var hex = /[0-9A-Fa-f]{6}/g;
-            // const query = (hex.test(id)) ? ObjectId(id) : id;
             const query = { _id: ObjectId(id) };
             //   console.log(id, query);
             const product = await productCollection.findOne(query);
