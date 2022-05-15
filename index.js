@@ -1,7 +1,8 @@
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId, MinKey } = require("mongodb");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+var jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 const app = express();
 
@@ -15,6 +16,22 @@ const client = new MongoClient(uri, {
     useUnifiedTopology: true,
     serverApi: ServerApiVersion.v1,
 });
+//**JWT Token */
+const verifyJWT = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: "unauthorized access" });
+    }
+    const token = authHeader.split(" ")[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+        if (err) {
+            return res.status(403).send({ message: "Forbidden" });
+        }
+        console.log("decoded", decoded);
+        req.decoded = decoded;
+        next();
+    });
+};
 
 async function run() {
     try {
@@ -23,6 +40,16 @@ async function run() {
         const addedProductCollection = client
             .db("essentials")
             .collection("addedProduct");
+
+        //**AUTH */
+
+        app.post("/login", (req, res) => {
+            const user = req.body;
+            const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN, {
+                expiresIn: "7d",
+            });
+            res.send({ accessToken });
+        });
 
         //Load all data
         app.get("/inventory", async (req, res) => {
@@ -60,13 +87,32 @@ async function run() {
 
         //All added products
 
-        app.get("/products", async (req, res) => {
-            const cursor = addedProductCollection.find({});
-            const products = await cursor.toArray();
-            res.send(products);
+        // app.get("/products", async (req, res) => {
+        //     const cursor = addedProductCollection.find({});
+        //     const products = await cursor.toArray();
+        //     res.send(products);
+        // });
+
+        //myitems
+
+        app.get("/myItems", verifyJWT, async (req, res) => {
+            const decodedEmail = req.decoded?.email;
+            const email = req.query.email;
+            if (email === decodedEmail) {
+                const query = { email };
+                const cursor = productCollection.find(query);
+                const myItems = await cursor.toArray();
+                res.send(myItems);
+            } else {
+                res.status(403).send({ message: 'forbidden access' })
+            }
+        });
+        app.post("/myItem", async (req, res) => {
+            const item = req.body;
+            const result = await productCollection.insertOne(item);
+            res.send(result);
         });
 
-        //Update delivered product
         //Update delivered product
         app.put("/inventory/:id", async (req, res) => {
             const id = req.params.id;
@@ -76,7 +122,6 @@ async function run() {
             const updatedDoc = {
                 $set: {
                     ...updatedProduct
-
                 },
             };
             const result = await productCollection.updateOne(
